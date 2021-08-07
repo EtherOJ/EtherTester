@@ -1,0 +1,10 @@
+name: 'EtherTester'
+description: 'Test all codes in project'
+inputs:
+  target:
+    description: 'Target decleration files'
+    required: true
+outputs: {}
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
