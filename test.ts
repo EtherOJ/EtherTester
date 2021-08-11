@@ -5,32 +5,14 @@ import * as YAML from 'yaml';
 import { PathLike, readFileSync } from 'fs';
 import * as util from 'util';
 import * as path from 'path';
-import * as tmp from 'tmp';
 import * as child_process from 'child_process';
 import { promises as fs } from 'fs';
+import { Testcase, TestConfig as _TestConfig } from './problem';
 
 const execw = util.promisify(child_process.exec);
 const execr = async function (args) {
     return (await execw(args)).stdout.trim();
 };
-
-interface Testcase {
-    input: string;
-    answer?: string;
-    specialJudge?: string;
-}
-
-interface TestConfig {
-    name: string;
-    description: string;
-    source: string;
-    filepath: string;
-    timeLimit: number;
-    spaceLimit: number;
-    solution: string;
-    compileArgs: string;
-    testcases: Testcase[];
-}
 
 export enum TestResult {
     // fail-fast results
@@ -54,6 +36,14 @@ interface TestReport {
     children?: TestReport[];
 }
 
+interface TestConfig extends _TestConfig {
+    filepath: string;
+}
+
+function tmpName() : string {
+    return `/tmp/tmp-et-${(Math.random() * (36**6-36**5) + 36**5).toString(36)}`;
+}
+
 class Test {
     private config: TestConfig;
     private executable: string;
@@ -66,6 +56,10 @@ class Test {
         this.config.spaceLimit ??= 128;
         this.config.timeLimit ??= 2048;
         this.config.testcases ??= [];
+        if (typeof this.config.solution !== 'string') {
+            const v = this.config.solution['cpp'];
+            this.config.solution = typeof v === 'string' ? v : undefined;
+        }
         delete this.config.description;
     }
 
@@ -74,8 +68,22 @@ class Test {
             core.info('\x1b[1;34m- parse infomation');
             console.log(this.config);
 
+            if (this.config.target?.test === false) {
+                return {
+                    result: TestResult.ACCEPTED,
+                    message: 'Test skipped.'
+                };
+            }
+
             try {
-                this.executable = await this.compile();
+                if (this.config.solution) {
+                    this.executable = await this.compile();
+                } else {
+                    return {
+                        result: TestResult.SYSTEM_ERROR,
+                        message: 'No solution file provided.',
+                    };
+                }
             } catch (e) {
                 core.error(`${this.shortPath()}: ${e}`);
                 return {
@@ -124,9 +132,9 @@ class Test {
 
     private async compile() : Promise<string> {
         core.info('\x1b[1;34m- compile solution file');
-        const solPath = path.resolve(this.config.solution);
-        const tmpFile = tmp.tmpNameSync();
-        const out = await execr(`g++ ${this.config.compileArgs ?? ''} -o ${tmpFile} ${solPath}`);
+        const solPath = path.resolve(this.config.solution as string);
+        const tmpFile = tmpName();
+        const out = await execr(`g++ ${this.config.meta?.compileArgs ?? ''} -o ${tmpFile} ${solPath}`);
         console.log(out);
 
         return tmpFile;
@@ -170,7 +178,7 @@ class Test {
     private async testCase(t: Testcase): Promise<TestReport> {
         const inf = path.resolve(t.input);
         const anf = path.resolve(t.answer);
-        const ouf = tmp.tmpNameSync();
+        const ouf = tmpName();
 
         const args = [
             `--exe_path=${this.executable}`,

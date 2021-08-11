@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "target": "ES2019"
     },
-    "include": ["**/*.ts"]
+    "include": ["**/*.ts"],
 }
