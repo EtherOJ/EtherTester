@@ -7,7 +7,7 @@ import * as util from 'util';
 import * as path from 'path';
 import * as child_process from 'child_process';
 import { promises as fs } from 'fs';
-import { Testcase, TestConfig as _TestConfig } from './problem';
+import { Testcase, Problem as _TestConfig } from './problem';
 
 const execw = util.promisify(child_process.exec);
 const execr = async function (args) {
@@ -63,15 +63,30 @@ class Test {
         delete this.config.description;
     }
 
+    private _defFail(message: string) : TestReport {
+        if (this.config.target?.includes('test')) {
+            core.error(`${this.shortPath()}: ${message}`);
+            return {
+                result: TestResult.SYSTEM_ERROR,
+                message,
+            };
+        } else {
+            return {
+                result: TestResult.ACCEPTED,
+                message: 'test skipped.'
+            };
+        }
+    }
+
     async test(): Promise<TestReport> {
         return await core.group(this.shortPath(), async () => {
             core.info('\x1b[1;34m- parse infomation');
             console.log(this.config);
 
-            if (this.config.target?.test === false) {
+            if (this.config.target?.includes('!test')) {
                 return {
                     result: TestResult.ACCEPTED,
-                    message: 'Test skipped.'
+                    message: 'test skipped.'
                 };
             }
 
@@ -79,10 +94,7 @@ class Test {
                 if (this.config.solution) {
                     this.executable = await this.compile();
                 } else {
-                    return {
-                        result: TestResult.SYSTEM_ERROR,
-                        message: 'No solution file provided.',
-                    };
+                    return this._defFail('no solution file provided');
                 }
             } catch (e) {
                 core.error(`${this.shortPath()}: ${e}`);
@@ -134,7 +146,7 @@ class Test {
         core.info('\x1b[1;34m- compile solution file');
         const solPath = path.resolve(this.config.solution as string);
         const tmpFile = tmpName();
-        const out = await execr(`g++ ${this.config.meta?.compileArgs ?? ''} -o ${tmpFile} ${solPath}`);
+        const out = await execr(`g++ ${this.config.config?.compileArgs ?? ''} -o ${tmpFile} ${solPath}`);
         console.log(out);
 
         return tmpFile;

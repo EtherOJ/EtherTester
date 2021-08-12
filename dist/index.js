@@ -15414,15 +15414,31 @@ class Test {
         }
         delete this.config.description;
     }
+    _defFail(message) {
+        var _a;
+        if ((_a = this.config.target) === null || _a === void 0 ? void 0 : _a.includes('test')) {
+            core.error(`${this.shortPath()}: ${message}`);
+            return {
+                result: TestResult.SYSTEM_ERROR,
+                message,
+            };
+        }
+        else {
+            return {
+                result: TestResult.ACCEPTED,
+                message: 'test skipped.'
+            };
+        }
+    }
     async test() {
         return await core.group(this.shortPath(), async () => {
             var _a, _b, _c;
             core.info('\x1b[1;34m- parse infomation');
             console.log(this.config);
-            if (((_a = this.config.target) === null || _a === void 0 ? void 0 : _a.test) === false) {
+            if ((_a = this.config.target) === null || _a === void 0 ? void 0 : _a.includes('!test')) {
                 return {
                     result: TestResult.ACCEPTED,
-                    message: 'Test skipped.'
+                    message: 'test skipped.'
                 };
             }
             try {
@@ -15430,10 +15446,7 @@ class Test {
                     this.executable = await this.compile();
                 }
                 else {
-                    return {
-                        result: TestResult.SYSTEM_ERROR,
-                        message: 'No solution file provided.',
-                    };
+                    return this._defFail('no solution file provided');
                 }
             }
             catch (e) {
@@ -15482,7 +15495,7 @@ class Test {
         core.info('\x1b[1;34m- compile solution file');
         const solPath = external_path_.resolve(this.config.solution);
         const tmpFile = tmpName();
-        const out = await execr(`g++ ${(_b = (_a = this.config.meta) === null || _a === void 0 ? void 0 : _a.compileArgs) !== null && _b !== void 0 ? _b : ''} -o ${tmpFile} ${solPath}`);
+        const out = await execr(`g++ ${(_b = (_a = this.config.config) === null || _a === void 0 ? void 0 : _a.compileArgs) !== null && _b !== void 0 ? _b : ''} -o ${tmpFile} ${solPath}`);
         console.log(out);
         return tmpFile;
     }
